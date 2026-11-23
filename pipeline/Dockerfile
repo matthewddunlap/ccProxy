@@ -44,13 +44,16 @@ RUN set -eux; \
     rm -rf "$tmp"
 
 # --- python deps -----------------------------------------------------------
-# ccAutomator's own requirements (incl. gradio_client, kept so the existing
-# remote-upscale path in the pinned code still works) + MtgPng2Pdf + upscaler.
+# ORDER MATTERS: torch FIRST, from the CPU wheel index. spandrel depends on
+# torch; if it is installed first from the default PyPI index, pip pulls the
+# CUDA build + nvidia-* wheels (multi-GB, wrong device for these hosts).
+RUN pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu torch torchvision
+# then the rest from PyPI (torch already satisfied -> not re-downloaded);
+# incl. gradio_client so the pinned ccAutomator's remote-upscale path still works
 RUN pip install --no-cache-dir \
         -r /opt/ccAutomator/requirements.txt \
         reportlab numpy spandrel spandrel-extra-arches
-RUN pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu torch torchvision
 
 # upscaling weights — populated by fetch-weights.sh before build (.keep guards COPY)
 COPY models/ /opt/ilaria/models/
