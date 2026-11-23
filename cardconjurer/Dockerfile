@@ -8,6 +8,10 @@ ARG CC_SHA=9e61e7ab1c62774c97421958207cd018ab367bf6
 # Exact image id running today on .216 (was nginx:stable-alpine).
 FROM docker.io/nginx@sha256:aed99734248e851764f1f2146835ecad42b5f994081fa6631cc5d79240891ec9
 
+# ARGs do not cross the FROM boundary — re-declare to use it in this stage
+# (override at build time still works: --build-arg CC_SHA=...)
+ARG CC_SHA
+
 RUN set -eux; \
     # busybox wget/tar ship with alpine — no extra packages needed
     wget -qO /tmp/cc.tar.gz "https://codeload.github.com/joshbirnholz/cardconjurer/tar.gz/${CC_SHA}"; \

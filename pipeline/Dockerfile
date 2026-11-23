@@ -10,6 +10,12 @@ ARG ILARIA_SHA=57e887c8e2ef20e99b5d20b8d224851c2d8c4700
 
 FROM docker.io/python:3.11-slim-bookworm
 
+# ARGs do not cross the FROM boundary — re-declare to use them in this stage
+# (override at build time still works: --build-arg CCAUTOMATOR_SHA=...)
+ARG CCAUTOMATOR_SHA
+ARG MTGPDF_SHA
+ARG ILARIA_SHA
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
