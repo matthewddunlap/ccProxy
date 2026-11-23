@@ -15,11 +15,13 @@ services:
   cardconjurer:
     build: ./cardconjurer
     image: ccproxy/cardconjurer:local
+    # host ports are overridable so the stack can run alongside (or replace)
+    # the old five-container setup; container-internal ports stay 4241-4244
     ports:
-      - "4241:4241"
-      - "4242:4242"
-      - "4243:4243"
-      - "4244:4244"
+      - "${CC_PORT_1:-4241}:4241"
+      - "${CC_PORT_2:-4242}:4242"
+      - "${CC_PORT_3:-4243}:4243"
+      - "${CC_PORT_4:-4244}:4244"
     volumes:
       # render output (PUT target of the workers), exposed to filebrowser
       - ./data:/usr/share/nginx/html/local_art:rw
