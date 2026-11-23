@@ -1,0 +1,25 @@
+# ccProxy source & image pins — single source of truth (also baked into `mtg version`).
+# Captured 2026-11-23 from the live stack on 172.17.1.216 / 172.17.1.217.
+#
+# Policy: a pin only changes intentionally. Bump here + in the matching
+# Dockerfile ARG together, then A/B (see bringup.md) before flipping traffic.
+
+# --- source (git) ---------------------------------------------------------
+cardconjurer       github.com/joshbirnholz/cardconjurer      9e61e7ab1c62774c97421958207cd018ab367bf6   # running on .216; plus cardconjurer/nginx.conf (the only local mod, now owned here)
+ccAutomator        github.com/matthewddunlap/ccAutomator     75677f6ce06ac27bbdc5da1ec6f192c6d4e91be0
+MtgPng2Pdf         github.com/matthewddunlap/MtgPng2Pdf      4bf9b723f3adc294e86b8e3e1cc5e62c39736aa1
+Ilaria engines     github.com/TheStingerX/Ilaria-Upscaler    57e887c8e2ef20e99b5d20b8d224851c2d8c4700   # only engines.py + bootstrap.py are used (in-process upscaling)
+
+# --- base / sibling images (digest-pinned) --------------------------------
+docker.io/nginx                sha256:aed99734248e851764f1f2146835ecad42b5f994081fa6631cc5d79240891ec9   # == nginx:stable-alpine running on .216
+docker.io/gtstef/filebrowser   sha256:38b58c74d72304b829ed8fc14baf189fbd3bfa468c1b1cc3d114e4f47123d67c   # == the live `beta` tag on .216 (digest pins the moving tag)
+docker.io/python               (python:3.11-slim-bookworm, tag-pinned; digest-pin when a registry mirror is chosen)
+
+# --- upscaler weights (model files ARE versioned software) ----------------
+# Canonical source = the Real-ESRGAN release URLs below: they are the exact
+# URLs engines.py itself downloads. (The .217 service never fetched them —
+# its "models" dirs on disk are upscaling OUTPUTS, not weights.)
+# fetch-weights.sh records each file's sha256 in models/SHA256SUMS.
+RealESRGAN_x2plus.pth          https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth
+RealESRGAN_x4plus.pth          https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth
+RealESRGAN_x4plus_anime_6B.pth https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth

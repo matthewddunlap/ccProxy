@@ -1,0 +1,14 @@
+# local data (the one-directory contract)
+data/
+filebrowser/
+
+# weights are fetched, not committed (fetch-weights.sh)
+pipeline/models/*.pth
+pipeline/models/*.pt
+pipeline/models/*.ckpt
+pipeline/models/*.safetensors
+pipeline/models/SHA256SUMS
+
+__pycache__/
+*.pyc
+.venv/

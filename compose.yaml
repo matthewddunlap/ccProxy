@@ -1,0 +1,50 @@
+# ccProxy — the whole pipeline, bringable up anywhere.
+#
+# Long-running:  cardconjurer (1 container, 4 ports), filebrowser
+# On-demand:     pipeline (run explicitly, e.g.)
+#   docker compose run --rm pipeline render decks/single.txt @conf/custom.conf
+#   docker compose run --rm pipeline pdf <decklist> [options]
+#   docker compose run --rm pipeline upscale in.png out.png
+#   docker compose run --rm pipeline version
+#
+# Data contract: one directory (./data) — decks/ in, local_art/ rendered
+# card images, out/ PDFs, cache/ scryfall caches. See bringup.md.
+name: ccproxy
+
+services:
+  cardconjurer:
+    build: ./cardconjurer
+    image: ccproxy/cardconjurer:local
+    ports:
+      - "4241:4241"
+      - "4242:4242"
+      - "4243:4243"
+      - "4244:4244"
+    volumes:
+      # render output (PUT target of the workers), exposed to filebrowser
+      - ./data:/usr/share/nginx/html/local_art:rw
+    restart: unless-stopped
+
+  filebrowser:
+    # digest-pinned: the live `beta` tag on .216, frozen (see pins.txt)
+    image: docker.io/gtstef/filebrowser@sha256:38b58c74d72304b829ed8fc14baf189fbd3bfa468c1b1cc3d114e4f47123d67c
+    ports:
+      - "${FILEBROWSER_PORT:-8080}:80"
+    volumes:
+      - ./data:/data:rw
+      - ./filebrowser:/home/filebrowser:rw
+    environment:
+      - FILEBROWSER_ADMIN_PASSWORD=${FILEBROWSER_ADMIN_PASSWORD:-change-me}
+    restart: unless-stopped
+
+  pipeline:
+    build: ./pipeline
+    image: ccproxy/pipeline:local
+    volumes:
+      - ./data:/data:rw
+    environment:
+      - DATA_DIR=/data
+      - CCAUTOMATOR_DATA_DIR=/data
+      # Card Conjurer app base URL (compose service name; use host IP + port
+      # when running the pipeline outside this compose project)
+      - CARDCONJURER_URL=http://cardconjurer:4242

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# mtg — ccProxy pipeline CLI. One image, stable command surface:
+# the same `mtg …` line runs under docker compose, quadlet, or NixOS containers.
+set -euo pipefail
+
+DATA_DIR="${DATA_DIR:-/data}"
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  render)
+    # ccAutomator — decklist -> rendered card PNGs (Selenium drives the
+    # Card Conjurer app; outputs via PUT to the cardconjurer service).
+    exec env DATA_DIR="$DATA_DIR" CCAUTOMATOR_DATA_DIR="$DATA_DIR" \
+        python /opt/ccAutomator/ccAutomator.py "$@"
+    ;;
+  pdf)
+    # MtgPng2Pdf — card PNGs + decklist -> cut-ready print PDF.
+    exec env DATA_DIR="$DATA_DIR" python /opt/MtgPng2Pdf/MtgPng2Pdf.py "$@"
+    ;;
+  upscale)
+    # Local upscaling via the pinned Ilaria engines — in-process, no server.
+    exec python /opt/mtg-tools/upscale.py "$@"
+    ;;
+  version)
+    cat /opt/mtg-version.json
+    exit 0
+    ;;
+  help|"--help"|"-h")
+    cat <<'EOF'
+usage: mtg <command> [args]
+
+  render     ccAutomator: decklist -> card PNGs
+             e.g. mtg render decks/single.txt @conf/custom.conf
+  pdf        MtgPng2Pdf: card PNGs + decklist -> print PDF
+  upscale    Local image upscaling (Ilaria engines, in-process)
+             e.g. mtg upscale in.png out.png --model realesrgan-x2 --scale 4
+  version    Print image version + all pinned source SHAs + chromium version
+
+Debug: docker run --rm --entrypoint bash ccproxy/pipeline:local
+EOF
+    exit 0
+    ;;
+  *)
+    echo "mtg: unknown command '$cmd' (try: mtg help)" >&2
+    exit 2
+    ;;
+esac

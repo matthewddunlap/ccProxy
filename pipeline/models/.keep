@@ -1,0 +1,2 @@
+# weights land here via fetch-weights.sh before build; .keep keeps the dir so
+# the Dockerfile COPY never fails on a fresh checkout.
