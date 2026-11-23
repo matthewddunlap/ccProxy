@@ -13,10 +13,11 @@ docker compose build
 
 ```sh
 mkdir -p data/decks data/out data/cache
+chown -R 101:101 data    # nginx worker (uid 101) must be able to write PUT targets
 docker compose up -d cardconjurer filebrowser
 
-# smoke: all four ports serve the app
-for p in 4241 4242 4243 4244; do curl -fsS "http://localhost:$p/" | grep -o '<title>[^<]*' ; done
+# smoke: all four ports serve the app (index.html has no <title>; match the meta keywords)
+for p in 4241 4242 4243 4244; do printf "port %s: " "$p"; curl -fsS "http://localhost:$p/" | grep -o 'card, creator, custom, maker'; done
 
 # smoke: PUT + HEAD round trip (what the workers do)
 curl -fsS -X PUT --data-binary 'hello' http://localhost:4242/local_art/smoke.txt
