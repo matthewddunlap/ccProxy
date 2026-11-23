@@ -39,6 +39,8 @@ services:
       - ./filebrowser:/home/filebrowser/data:rw
     environment:
       - FILEBROWSER_CONFIG=data/config.yaml
+      - FILEBROWSER_DATABASE=data/database.db
+      - FILEBROWSER_FFMPEG_PATH=/usr/local/bin/
       - FILEBROWSER_ADMIN_PASSWORD=${FILEBROWSER_ADMIN_PASSWORD:-change-me}
       - TZ=America/New_York
     restart: unless-stopped

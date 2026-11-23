@@ -14,7 +14,10 @@ docker compose build
 ```sh
 mkdir -p data/decks data/out data/cache
 chown -R 101:101 data    # nginx worker (uid 101) must be able to write PUT targets
+mkdir -p filebrowser/data && cp config/filebrowser.yaml filebrowser/data/config.yaml
 docker compose up -d cardconjurer filebrowser
+# (filebrowser FATALs without its config file — the seed above is the one from
+#  the live .216 deployment, adapted to this stack's /data mount)
 
 # smoke: all four ports serve the app (index.html has no <title>; match the meta keywords)
 for p in 4241 4242 4243 4244; do printf "port %s: " "$p"; curl -fsS "http://localhost:$p/" | grep -o 'card, creator, custom, maker'; done
