@@ -34,9 +34,13 @@ services:
       - "${FILEBROWSER_PORT:-8080}:80"
     volumes:
       - ./data:/data:rw
-      - ./filebrowser:/home/filebrowser:rw
+      # NOTE: mount /home/filebrowser/data (the state dir), NOT /home/filebrowser —
+      # the binary + entrypoint live in the image's /home/filebrowser
+      - ./filebrowser:/home/filebrowser/data:rw
     environment:
+      - FILEBROWSER_CONFIG=data/config.yaml
       - FILEBROWSER_ADMIN_PASSWORD=${FILEBROWSER_ADMIN_PASSWORD:-change-me}
+      - TZ=America/New_York
     restart: unless-stopped
 
   pipeline:
