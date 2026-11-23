@@ -1,5 +1,6 @@
-# Seed config for filebrowser (copied to filebrowser/data/config.yaml on first
-# bring-up — see bringup.md). Copied from the live .216 deployment, which runs
+# Seed config for filebrowser (copied to filebrowser/config.yaml on first
+# bring-up — see bringup.md). Note: ./filebrowser is mounted at
+# /home/filebrowser/data, so host state files live directly in ./filebrowser/. Copied from the live .216 deployment, which runs
 # the same image with this exact config. The single source path matches the
 # compose volume mount (./data -> /data).
 server:

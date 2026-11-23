@@ -14,7 +14,7 @@ docker compose build
 ```sh
 mkdir -p data/decks data/out data/cache
 chown -R 101:101 data    # nginx worker (uid 101) must be able to write PUT targets
-mkdir -p filebrowser/data && cp config/filebrowser.yaml filebrowser/data/config.yaml
+mkdir -p filebrowser && cp config/filebrowser.yaml filebrowser/config.yaml
 docker compose up -d cardconjurer filebrowser
 # (filebrowser FATALs without its config file — the seed above is the one from
 #  the live .216 deployment, adapted to this stack's /data mount)
