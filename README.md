@@ -33,6 +33,8 @@ pipeline/       Dockerfile + mtg (wrapper CLI) + upscale.py + fetch-weights.sh +
 compose.yaml    the whole stack
 pins.txt        every source SHA + image digest + weight URL (single source of truth)
 bringup.md      build, smoke, A/B byte-identity test plan, known deltas
+AGENT_*.md      agent handoff notes (OVERVIEW first: status, rulings, traps;
+                TODO/DOING/DONE track the work)
 ```
 
 ## Design notes (the short version)
