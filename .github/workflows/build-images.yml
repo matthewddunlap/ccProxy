@@ -45,10 +45,10 @@ jobs:
             -t "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:${GITHUB_SHA:0:7}" \
             ./pipeline
 
-      - name: Sanity: mtg version (pins + chromium)
+      - name: "Sanity: mtg version (pins + chromium)"
         run: docker run --rm "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest" version
 
-      - name: Sanity: upscale smoke (192 tile, CPU ok)
+      - name: "Sanity: upscale smoke (192 tile, CPU ok)"
         run: |
           docker run --rm --entrypoint bash "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest" -c '
             python -c "from PIL import Image; Image.new(\"RGB\",(192,192),(180,60,30)).save(\"/data/smoke_in.png\")"
@@ -81,7 +81,7 @@ jobs:
             -t "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:${GITHUB_SHA:0:7}" \
             ./cardconjurer
 
-      - name: Sanity: serves the app
+      - name: "Sanity: serves the app"
         run: |
           docker run -d --name cc -p 127.0.0.1:18080:4241 "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:latest"
           sleep 2
