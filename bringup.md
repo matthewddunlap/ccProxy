@@ -30,6 +30,14 @@ curl -fsS -X DELETE http://localhost:4242/local_art/smoke.txt
 # render one small deck (same flags as today's custom.conf)
 docker compose run --rm pipeline version
 docker compose run --rm pipeline render data/decks/single.txt @data/conf/custom.conf
+
+# pdf: the PRODUCTION layout is the cameo one — `--cameo`, letter portrait,
+# a 2x3 (6-slot) fixed layout ("cameo matless"); verified working 2026-11-24
+# with registration marks. The plain grid + --cut-lines mode (3x3 letter etc.)
+# is the OTHER mode — fine to use, just not the production layout.
+docker compose run --rm pipeline pdf --cameo --paper-type letter \
+    --cameo-orientation portrait --png-dir /data/card_images/teaching \
+    --deck-list decks/smoke.txt --output-file /data/out/smoke
 ```
 
 ## A/B against the live stack (byte-identity methodology from the AGENT notes)
