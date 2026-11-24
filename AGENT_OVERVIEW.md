@@ -22,10 +22,10 @@ rulings, re-open only if the user does.
 **Bringing-up is DONE and verified; all smokes + A/B green.** Both images
 built and deployed alongside the old stack on `.216`; the flip (old conf's
 `--url` → new stack) is the user's call, not done yet. **Build/publish is
-decided + implemented (2026-11-24):** GitHub Actions builds both images and
-publishes them PUBLIC to Docker Hub as
-`matthewddunlap/ccproxy-{cardconjurer,pipeline}` (`:latest` + `<sha7>`).
-First green run + cross-host pull verification in flight — see AGENT_DOING.
+LIVE (2026-11-24):** GitHub Actions builds both images and publishes them
+PUBLIC to Docker Hub as `matthewddunlap/ccproxy-{cardconjurer,pipeline}`
+(`:latest` + `<sha7>`); first green run #3, pulled + verified on .216 and
+.217 — full record in AGENT_DONE.
 
 State at a glance:
 - Repo: `matthewddunlap/ccProxy` (public), main clean + pushed; images are

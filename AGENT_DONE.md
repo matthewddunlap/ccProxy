@@ -1,5 +1,39 @@
 # AGENT DONE — completed items
 
+## GitHub Actions → Docker Hub publication  [2026-11-24]
+
+The "build + store the images" topic (former TODO #1) — **live and verified**.
+Ruling + rationale: AGENT_OVERVIEW (2026-11-24 build/publish entry).
+
+- **Workflow** `.github/workflows/build-images.yml` — `ca10995` (first),
+  `fc955c2` (YAML typo: unquoted `:` in step names), `e9de012` (final:
+  `paths` gate so doc-only pushes don't rebuild an 11 GB image). Two jobs
+  = two runners (the pipeline build peaks near a runner's disk budget:
+  ~4.7 GB torch wheels); `workflow_dispatch` = deliberate re-bake (e.g.
+  after bookworm bumps Chromium).
+- **Published (public, per ruling):** `docker.io/matthewddunlap/ccproxy-pipeline`
+  + `matthewddunlap/ccproxy-cardconjurer`, tags `latest` + `e9de012`
+  (head SHA — attributable; `mtg version` inside also bakes all source
+  SHAs + chromium).
+- **First green run:** [actions/runs/45476499707](https://github.com/matthewddunlap/ccProxy/actions/runs/45476499707)
+  (run #1 failed on the YAML typo; #2 was superseded by #3 via the
+  concurrency group — both expected).
+- **CI sanity:** weights fetch (self-verifying), `mtg version` (all pins +
+  Chromium 156.0.8078.108), upscale smoke (192 tile, CPU), cardconjurer
+  HTTP check. Render/PDF smokes stay on the deploying host — they need
+  the bringup assets in `data/`, which are gitignored by design.
+- **Delivery verified 2026-11-24:** pulled `latest` from Docker Hub on
+  **.216 (both images)** and **.217 (pipeline)** — standard HTTPS, no
+  daemon config; `mtg version` on the pulled images shows every source
+  SHA + chromium intact.
+- **Rejected this session (do not re-litigate without the user):** GHCR
+  (free tier = 1 GB storage vs our 11.3 GB), LAN registry + self-hosted
+  runner on .216 (user: no builds on .216), cardconjurer frame trimming
+  to just Seventh/seventhTextless (keep the FULL frame set — don't corner
+  the frame choice; the exact keep-list was mapped out and shelved).
+  The abandoned LAN-registry leftovers on .216 were cleaned (registry:2
+  image, orphaned `ccproxy/*:latest` tags, `build.sh`).
+
 ## Bring-up + full smoke + A/B  [2026-11-23/24]
 
 Scaffold (prior sessions) → build → smoke → A/B, all verified. Full record +
