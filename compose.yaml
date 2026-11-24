@@ -52,7 +52,7 @@ services:
       - ./data:/data:rw
     environment:
       - DATA_DIR=/data
-      - CCAUTOMATOR_DATA_DIR=/data
+      - CC_AUTOMATOR_DATA_DIR=/data
       # Card Conjurer app base URL (compose service name; use host IP + port
       # when running the pipeline outside this compose project)
       - CARDCONJURER_URL=http://cardconjurer:4242

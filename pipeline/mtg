@@ -12,7 +12,7 @@ case "$cmd" in
   render)
     # ccAutomator — decklist -> rendered card PNGs (Selenium drives the
     # Card Conjurer app; outputs via PUT to the cardconjurer service).
-    exec env DATA_DIR="$DATA_DIR" CCAUTOMATOR_DATA_DIR="$DATA_DIR" \
+    exec env DATA_DIR="$DATA_DIR" CC_AUTOMATOR_DATA_DIR="$DATA_DIR" \
         python /opt/ccAutomator/ccAutomator.py "$@"
     ;;
   pdf)
