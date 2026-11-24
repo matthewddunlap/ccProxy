@@ -41,8 +41,19 @@ def main() -> None:
         default=4.0,
         help="Upscale factor (custom.conf currently passes 4).",
     )
-    p.add_argument("--tile", type=int, default=0, help="Tile size; 0 = engine default.")
+    p.add_argument(
+        "--tile",
+        type=int,
+        default=192,
+        help="Tile size — the pinned engine divides by it, so it must be positive; "
+             "the original service accepts exactly 128/192/256/384 (default 192, "
+             "its service default).",
+    )
     a = p.parse_args()
+    if not 1 <= a.scale <= 4:
+        p.error(f"--scale must be within 1..4 (got {a.scale})")
+    if a.tile not in (128, 192, 256, 384):
+        p.error(f"--tile must be one of 128, 192, 256, 384 (got {a.tile})")
 
     import engines  # deferred: pulls in torch
 
