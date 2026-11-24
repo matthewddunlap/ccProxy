@@ -44,12 +44,15 @@ RUN set -eux; \
     rm -rf "$tmp"
 
 # --- python deps -----------------------------------------------------------
-# ORDER MATTERS: torch FIRST, from the CPU wheel index. spandrel depends on
-# torch; if it is installed first from the default PyPI index, pip pulls the
-# CUDA build + nvidia-* wheels (multi-GB, wrong device for these hosts).
-RUN pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu torch torchvision
-# then the rest from PyPI (torch already satisfied -> not re-downloaded);
+# torch: the DEFAULT PyPI build (CUDA-capable; runs fine on CPU too).
+# engines.py picks the device via torch.cuda.is_available() — a GPU host
+# upscales on the GPU, a CPU host (all current hosts) falls back to CPU.
+# Do NOT pin the CPU-only wheel index here: it would silently disable GPU
+# upscaling on machines that have one. (bootstrap.py's manual setup path does
+# the same thing at runtime: CUDA torch+torchvision when a GPU is detected.)
+# The extra nvidia-* wheel downloads are the price of not ruling out GPUs.
+RUN pip install --no-cache-dir torch torchvision
+# the rest from PyPI (torch already satisfied -> not re-downloaded);
 # incl. gradio_client so the pinned ccAutomator's remote-upscale path still works
 RUN pip install --no-cache-dir \
         -r /opt/ccAutomator/requirements.txt \
