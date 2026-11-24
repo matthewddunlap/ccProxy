@@ -39,9 +39,11 @@ step "3/5 sanity: mtg version (pins + chromium)"
 docker run --rm "${NS}/pipeline:latest" version
 
 step "4/5 sanity: upscale (192 tile; CPU ok)"
-docker run --rm --entrypoint python "${NS}/pipeline:latest" -c \
+# via `compose run` so the input lands in the shared ./data (a bare `docker
+# run` container is ephemeral and has no data mount)
+docker compose run --rm --entrypoint python pipeline -c \
   "from PIL import Image; Image.new('RGB',(192,192),(180,60,30)).save('/data/build_smoke_in.png')"
-docker run --rm "${NS}/pipeline:latest" \
+docker compose run --rm pipeline \
   upscale /data/build_smoke_in.png /data/build_smoke_out.png --mode fast --model realesrgan-x2
 
 # The cameo-PDF smoke needs the bringup assets (decks/smoke.txt + the
@@ -49,7 +51,7 @@ docker run --rm "${NS}/pipeline:latest" \
 # elsewhere rather than fail.
 if [ -f data/decks/smoke.txt ] && ls data/card_images/teaching/*.png >/dev/null 2>&1; then
   step "5/5 sanity: production cameo PDF (letter portrait 2x3)"
-  docker run --rm "${NS}/pipeline:latest" pdf --cameo --paper-type letter \
+  docker compose run --rm pipeline pdf --cameo --paper-type letter \
     --cameo-orientation portrait --png-dir /data/card_images/teaching \
     --deck-list /data/decks/smoke.txt --output-file /data/out/build_smoke
   ls -l data/out/build_smoke*
