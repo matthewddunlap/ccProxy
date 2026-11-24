@@ -1,7 +1,6 @@
 # local data (the one-directory contract)
 data/
 filebrowser/
-registry/
 
 # weights are fetched, not committed (fetch-weights.sh)
 pipeline/models/*.pth

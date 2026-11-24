@@ -14,7 +14,8 @@ Ilaria engines     github.com/TheStingerX/Ilaria-Upscaler    57e887c8e2ef20e99b5
 docker.io/nginx                sha256:aed99734248e851764f1f2146835ecad42b5f994081fa6631cc5d79240891ec9   # == nginx:stable-alpine running on .216
 docker.io/gtstef/filebrowser   sha256:38b58c74d72304b829ed8fc14baf189fbd3bfa468c1b1cc3d114e4f47123d67c   # == the live `beta` tag on .216 (digest pins the moving tag)
 docker.io/python               (python:3.11-slim-bookworm, tag-pinned; digest-pin when a registry mirror is chosen)
-docker.io/library/registry     sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373   # registry:2 — the LAN registry service (compose)
+# --- publication -------------------------------------------------------------
+docker.io/matthewddunlap/ccproxy-*  built + pushed by GitHub Actions (.github/workflows/build-images.yml); tags :latest + <sha7>; public (all inputs are public)
 
 # --- upscaler weights (model files ARE versioned software) ----------------
 # Canonical source = the Real-ESRGAN release URLs below: they are the exact

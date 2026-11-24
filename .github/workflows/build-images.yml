@@ -1,0 +1,98 @@
+# ccProxy image build + publish.
+#
+# Two jobs = two runners: the pipeline build peaks near the runner's disk
+# budget (torch + nvidia wheels), so it gets its own machine and runs
+# independently of the (small) cardconjurer build.
+#
+# Tags: :latest (moving) + <sha7> (immutable). `mtg version` inside the
+# pipeline image prints every source SHA + chromium, so every pushed image
+# is attributable.
+#
+# Requires repo secret: DOCKERHUB_TOKEN (read/write access token).
+name: build-images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-images
+  cancel-in-progress: true
+
+env:
+  DOCKERHUB_USER: matthewddunlap
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Hub login
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$DOCKERHUB_USER" --password-stdin
+
+      # Populates pipeline/models/ (pinned URLs, self-verifying SHA256SUMS);
+      # the Dockerfile just COPYs them in.
+      - name: Fetch upscaler weights
+        run: ./pipeline/fetch-weights.sh
+
+      - name: Build
+        run: |
+          docker build \
+            -t "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest" \
+            -t "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:${GITHUB_SHA:0:7}" \
+            ./pipeline
+
+      - name: Sanity: mtg version (pins + chromium)
+        run: docker run --rm "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest" version
+
+      - name: Sanity: upscale smoke (192 tile, CPU ok)
+        run: |
+          docker run --rm --entrypoint bash "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest" -c '
+            python -c "from PIL import Image; Image.new(\"RGB\",(192,192),(180,60,30)).save(\"/data/smoke_in.png\")"
+            mtg upscale /data/smoke_in.png /data/smoke_out.png --mode fast --model realesrgan-x2
+            ls -l /data/smoke_out.png
+          '
+
+      - name: Push
+        run: |
+          docker push "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:latest"
+          docker push "docker.io/${DOCKERHUB_USER}/ccproxy-pipeline:${GITHUB_SHA:0:7}"
+
+      - name: Free runner disk
+        if: always()
+        run: docker system prune -af
+
+  cardconjurer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Hub login
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$DOCKERHUB_USER" --password-stdin
+
+      - name: Build
+        run: |
+          docker build \
+            -t "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:latest" \
+            -t "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:${GITHUB_SHA:0:7}" \
+            ./cardconjurer
+
+      - name: Sanity: serves the app
+        run: |
+          docker run -d --name cc -p 127.0.0.1:18080:4241 "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:latest"
+          sleep 2
+          curl -sf http://127.0.0.1:18080/ | head -c 200
+          docker rm -f cc
+
+      - name: Push
+        run: |
+          docker push "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:latest"
+          docker push "docker.io/${DOCKERHUB_USER}/ccproxy-cardconjurer:${GITHUB_SHA:0:7}"
+
+      - name: Free runner disk
+        if: always()
+        run: docker system prune -af
