@@ -21,12 +21,15 @@ rulings, re-open only if the user does.
 
 **Bringing-up is DONE and verified; all smokes + A/B green.** Both images
 built and deployed alongside the old stack on `.216`; the flip (old conf's
-`--url` → new stack) is the user's call, not done yet. Next topic (new
-context): **building + storing the images via GitHub Actions + a container
-registry** — see AGENT_TODO #1 for the constraints that shape it.
+`--url` → new stack) is the user's call, not done yet. **Build/publish is
+decided + implemented (2026-11-24):** GitHub Actions builds both images and
+publishes them PUBLIC to Docker Hub as
+`matthewddunlap/ccproxy-{cardconjurer,pipeline}` (`:latest` + `<sha7>`).
+First green run + cross-host pull verification in flight — see AGENT_DOING.
 
 State at a glance:
-- Repo: `matthewddunlap/ccProxy`, main @ `60cd33b`, clean, pushed.
+- Repo: `matthewddunlap/ccProxy` (public), main clean + pushed; images are
+  published via GitHub Actions → Docker Hub (below).
 - `ccproxy/cardconjurer:local` (4.62 GB): nginx + Card Conjurer app @ pinned
   SHA, 1 container / 4 listeners; PUT conf vendored in git.
 - `ccproxy/pipeline:local` (6.72 GB): one image, `mtg render|pdf|upscale|version`;
@@ -56,6 +59,15 @@ User rulings (date — do not revisit unilaterally):
 - 2026-11-24 Production PDF layout is the **`--cameo`** mode, letter
   portrait **2×3 (6-slot)** ("cameo matless" — user's term; no such flag
   in code). The plain grid + `--cut-lines` mode is the other one.
+- 2026-11-24 **Build/publish: GitHub Actions → Docker Hub, PUBLIC**
+  (`matthewddunlap/ccproxy-{cardconjurer,pipeline}`, `:latest` + `<sha7>`).
+  Rejected the same day, in order: GHCR (free tier = 1 GB storage vs our
+  11.3 GB), a LAN registry + self-hosted runner on .216 (user: builds do
+  not happen on .216), and trimming cardconjurer's frame set down to just
+  Seventh/seventhTextless (keep the FULL frame set — do not corner the
+  frame choice). Docker Hub free fits: the cap is **10 GB per LAYER**
+  (our biggest layer is 5.71 GB, the torch install), public storage
+  fair-use; the repo is public → 2,000 Actions min/mo.
 
 ## Traps that already bit (don't relearn the hard way)
 

@@ -4,39 +4,28 @@ Read `AGENT_OVERVIEW.md` first (status + user rulings). Items live here,
 move to `AGENT_DOING.md` when started, and to `AGENT_DONE.md` when finished
 (with outcome + verification).
 
-## 1) GitHub Actions: build + push images to a container registry  [NEXT — to discuss with user]
+## 1) GitHub Actions → Docker Hub publication  [IN FLIGHT — see AGENT_DOING]
 
-The upcoming topic. Design constraints discovered during bring-up that shape
-it — bring these to the discussion, don't rediscover them:
+Decided + implemented 2026-11-24 (ruling recorded in AGENT_OVERVIEW):
+Actions builds both images on GitHub-hosted runners, sanity-checks
+(`mtg version`, upscale smoke, cardconjurer serves), pushes PUBLIC
+`matthewddunlap/ccproxy-{cardconjurer,pipeline}` as `:latest` + `<sha7>`.
+Workflow: `.github/workflows/build-images.yml` — two jobs = two runners
+(the pipeline build peaks near a runner's disk budget: ~4.7 GB torch
+wheels + 5.71 GB layer); weights fetched in-job via the existing
+self-verifying `pipeline/fetch-weights.sh`; Chromium still unpinned by
+ruling, so `<sha7>` + the baked `mtg version` JSON keep every push
+attributable. Run #1 failed on a YAML typo (unquoted colon in a step
+name), fixed in `fc955c2`; run #2 in flight.
 
-- **Two built images, one pull-only:** `cardconjurer` (4.62 GB) and
-  `pipeline` (6.72 GB) are built; filebrowser is a digest-pinned pull —
-  the workflow only needs to build/push the two, but compose must keep
-  working both from the registry AND locally (`image:` + `build:` pattern;
-  decide the tag scheme — today everything is `:local`).
-- **pipeline build inputs:** pinned source SHAs fetched at build time from
-  codeload (fine in CI), **Real-ESRGAN weights** from `pipeline/models/`
-  (populated by `./pipeline/fetch-weights.sh` — 67 MB, SHA256SUMS recorded;
-  in CI either run the fetcher in a pre-step or fetch in the Dockerfile —
-  decide), and **~4.7 GB of CUDA-capable torch wheels** downloaded by pip
-  (user ruling: keep the CUDA build, NOT the CPU wheel index).
-- **Image sizes are large** (4.6 + 6.7 GB) → registry push time/storage
-  matters; hosts are all amd64 (single-arch is fine for v1).
-- **Chromium is unpinned by decision** (bookworm apt, 156.0.8078.108 as of
-  build date). CI rebuilds after a bookworm update WILL shift
-  art-region pixels (max ~29/255, no color shift — the accepted class of
-  drift). `mtg version` bakes the exact chromium + all SHAs into the image,
-  so tag/pin accordingly (e.g. build-date or digest-tagging) to keep every
-  pushed image attributable.
-- **Reproducibility record already exists:** `mtg version` prints
-  ccAutomator/MtgPng2Pdf/Ilaria SHAs + chromium version — keep that
-  contract if the Dockerfile changes.
-- Where to store: user to pick registry (GHCR is the natural default for
-  GitHub Actions; other options exist). Secrets/tokens, retention, and
-  who may pull are user decisions.
-- After switching compose `image:` refs to registry tags, re-verify on
-  .216: pull + `mtg version` + the bringup.md smoke set (render must
-  resolve cards from the shared cache — check `CC_AUTOMATOR_DATA_DIR`).
+Remaining after the first green run:
+- Pull + `mtg version` from a second host (.216 and/or .217) to prove
+  delivery — no daemon config needed, Docker Hub is standard HTTPS.
+- The full render/PDF smokes run on the deploying host (they need the
+  bringup assets in `data/`, which is gitignored — CI cannot run them).
+  Render must resolve from the shared cache — check `CC_AUTOMATOR_DATA_DIR`.
+- When the user flips (item 2), .216's compose already references the
+  Docker Hub names (`image:` + kept `build:`).
 
 ## 2) Flip the production flow to the new stack  [blocked on user]
 
