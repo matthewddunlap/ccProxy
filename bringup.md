@@ -44,19 +44,72 @@ If PNGs differ, first suspect **chromium version** (glyph metrics drive the
 auto-fit calibrations): pin the old chromium build into the image, or re-run
 the `*_calibrate.py` scripts against the new one and re-compare.
 
-## 5→1 nginx collapse: test plan
+## A/B result — 2026-11-23 (deck: 1 Forest, 2 Brainstorm → Forest lea/294, Brainstorm ice/61)
+
+**Verdict: functionally identical; not byte-identical. The delta is
+documented and accepted (decision: keep Chromium 156).**
+
+Test record (`mtg version` from the new image):
+```json
+{"image":"ccproxy-pipeline","ccautomator":"75677f6ce06ac27bbdc5da1ec6f192c6d4e91be0",
+ "mtgpng2pdf":"4bf9b723f3adc294e86b8e3e1cc5e62c39736aa1",
+ "ilaria_engines":"57e887c8e2ef20e99b5d20b8d224851c2d8c4700","chromium":"156.0.8078.108"}
+```
+Old stack: same code@same SHA + same conf + Chromium **135.0.7049.95** (Debian bookworm).
+
+| | new stack (sha256) | old stack (sha256) | pixel diff |
+|---|---|---|---|
+| Forest lea/294 | `18d2cdfe…cfc0d3` | `f1ebaad5…b8b8c` | **1,878 / 5,656,140 px (0.03%), max Δ1** |
+| Brainstorm ice/61 | `635fcbdf…5fa32a` | `f8022aea…c6dfa` | 1,852,180 px (32.7%), **max Δ29**, no channel-mean shift |
+
+- Both stacks are **byte-reproducible run-to-run** (each hash repeated across
+  separate runs; old-stack Forest also identical to the 2026-11-18 production
+  file). The old↔new gap is therefore deterministic, not timing noise.
+- The gap is confined to the **photographic art region** (plus title text
+  anti-aliased over the art): per-channel means are identical, no linear gain —
+  a decode-level difference (Chromium 135 vs 156 rendering the same JPEG).
+  Text over the white rules box is pixel-identical: **all auto-fit
+  calibrations transfer cleanly** to Chromium 156.
+- Art JPEGs fetched by both runs are byte-identical (`cc62f731…` /
+  `e419577f…`), scryfall cache and centered-text cache byte-identical, all app
+  assets byte-identical — the renderer was the only uncontrolled variable.
+
+**A/B traps hit this round (documented so they don't bite again):**
+1. ccAutomator reads `CC_AUTOMATOR_DATA_DIR` — a misspelled env silently makes
+   the container fall back to the live Scryfall API (different print
+   resolution) and live tagger fetch. (Fixed in compose/mtg.)
+2. `--output-dir` (local-save mode) hands the *local filesystem path* of the
+   art to the remote app, which cannot load it → the art window renders
+   transparent. A/B must use the production upload path (`--upload-path` +
+   `--image-server`).
+3. Production cards rendered **before** a `custom.conf` change are not a valid
+   baseline (e.g. Brainstorm 2026-11-18 predates `--center-text`, committed
+   2026-11-23). Re-render the old stack with the current conf.
+
+## 5→1 nginx collapse: test plan (results 2026-11-23)
 
 All five old containers served byte-identical content from the same mounts, so
 one container with four listeners is *supposed* to be a no-op. Proving it:
 
-- [ ] static equivalence: `diff` response bodies across old 4241–4244 vs new (a few URLs: index.html, creator JS, one set symbol)
-- [ ] PUT + HEAD + GET round trip on each of the 4 ports; file visible in filebrowser
-- [ ] concurrency: two `render` runs in parallel against the same origin — no cross-contamination (workers are `--incognito` isolated), both outputs land, correct cards per batch
-- [ ] full byte-identity A/B above
-- [ ] old five-container compose stays up until all of the pass; flipping is a `--url` in the conf
+- [x] static equivalence: all app assets (index, main-1.js, htmx.min.js,
+      themes.js, css) **sha256-identical** old 4242 vs new 5242
+- [x] PUT + HEAD + GET + DELETE round trip on each of the 4 ports
+      (201/200/204); file visible in filebrowser (`/raw/…` 200)
+- [x] concurrency: two `render` runs truly in parallel — both green, correct
+      card each, no cross-contamination
+- [x] A/B above — see result; delta documented & accepted
+- [ ] old five-container compose stays up until flip; flipping is a `--url` in
+      the conf (old stack verified still serving on 4241–4244)
 
 ## Known deltas / follow-ups (deliberate, tracked)
 
+- **Chromium is not version-pinned in the image (deliberate, 2026-11-23)**:
+  the A/B showed only an art-region decode delta (max 29/255, no color shift)
+  vs the old stack's Chromium 135; decision was to keep the modern Chromium
+  rather than pin the EOL 135 build. Consequence: a rebuild after a bookworm
+  chromium update may shift art-region pixels again — `mtg version` records
+  the exact chromium in every test record, so any drift stays attributable.
+  Layout/text calibrations already verified to transfer (see A/B result).
 - **X-Upload-Secret**: the client sends it; the (vendored) conf does not
   enforce it — same as today, on a trusted LAN. Hardening is a follow-up.
 - **gradio_client** is still installed so the pinned ccAutomator's remote
