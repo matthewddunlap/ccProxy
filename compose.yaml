@@ -24,11 +24,22 @@ services:
     # (it FATALs without one), creates the data-contract dirs, and makes the
     # data dir writable by the container users (nginx worker uid 101 PUTs
     # the rendered cards there; the live .216 dir is likewise 777).
+    #
+    # chown of the app-writable subdirs is NOT optional: init runs as ROOT,
+    # so card_images/teaching would otherwise be root:755 and the cardconjurer
+    # nginx worker (uid 101) gets EACCES on every card PUT -> HTTP 500
+    # (caught by the 2026-11-25 e2e on a fresh deploy).
+    #
+    # decks/prime.txt: the baked production custom.conf runs ccAutomator with
+    # `--prime-file decks/prime.txt`, and ccAutomator exit(1)s if the file is
+    # missing. The old stack had it in the driver CWD; a fresh data dir does
+    # not — so init seeds it (only if absent; a user's own copy wins).
     image: docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
-    entrypoint: ["sh", "-c", "set -e; mkdir -p /fb /data/decks /data/out /data/card_images/teaching; [ -f /fb/config.yaml ] || cp /seed/config.yaml /fb/config.yaml; chmod 777 /data"]
+    entrypoint: ["sh", "-c", "set -e; mkdir -p /fb /data/decks /data/out /data/card_images/teaching; [ -f /fb/config.yaml ] || cp /seed/config.yaml /fb/config.yaml; [ -f /data/decks/prime.txt ] || cp /seed/prime.txt /data/decks/prime.txt; chmod 777 /data; chown -R 101:101 /data/decks /data/out /data/card_images"]
     volumes:
       - ./filebrowser:/fb
       - ./config/filebrowser.yaml:/seed/config.yaml:ro
+      - ./config/prime.txt:/seed/prime.txt:ro
       - ./data:/data
     restart: "no"
 
