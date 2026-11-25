@@ -17,7 +17,14 @@ files current — they are the handoff when a context overflows. Don't delete
 from DONE. User decisions are recorded with their date — treat them as
 rulings, re-open only if the user does.
 
-## Current status (2026-11-24) — read this first
+## Current status (2026-11-25) — read this first
+
+**End-to-end tests are the active item.** The `cctest` e2e on `.216` (the
+published `matthewddunlap/ccproxy-*:latest`) runs **GREEN end-to-end** —
+render→pdf, offline/deterministic, cards byte-identical to the A/B baseline
+(see AGENT_DONE, 2026-11-25). Left in flight (TODO #1): fix the `init`
+card_images ownership bug (root cause of an app-PUT 500), add a repeatable
+e2e script, commit + push (confirm push). Details: AGENT_DOING.md.
 
 **Bringing-up is DONE and verified; all smokes + A/B green.** Both images
 built and deployed alongside the old stack on `.216`; the flip (old conf's

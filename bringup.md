@@ -142,3 +142,38 @@ one container with four listeners is *supposed* to be a no-op. Proving it:
   render→pdf handoff contract is pinned down.
 - **Quadlet units**: translate this compose.yaml (image + port + volume + env)
   into `.container` units for the quadlet host; same images, same data dir.
+
+## End-to-end test — `cctest` (published image)  [2026-11-25]
+
+A clean end-to-end run of the **published** Docker Hub image on the test
+deployment `cctest` (`.216:/tmp/ccfresh`, app **5341–4**, filebrowser **8081**,
+data **`/tmp/ccfresh/data`**), offline/deterministic.
+
+**Result: GREEN.** render A/B deck (Forest ×1, Brainstorm ×2) → 2 card PNGs,
+offline (809/33 local-cache prints; NOT live API), exit 0; card sha256
+**byte-identical** to the A/B baseline + the main local `:local` build
+(forest `18d2cdfe…cfc0d3`, brainstorm `635fcbdf…5fa32a`). pdf (cameo, letter
+portrait 2×3) → `out/e2e.pdf`, **1 page**, 505,930 B (main verified
+`smoke_cameo.pdf`, same deck = 507,745 B). `mtg version`: ccautomator 75677f6,
+mtgpng2pdf 4bf9b723, ilaria 57e887c, chromium 156.0.8078.108.
+
+**Two issues the e2e caught (fresh-deploy regressions):**
+1. **`init` service ownership bug (REAL, repo fix TODO).** `init` creates
+   `card_images/teaching` as **root:755** (only `chmod 777 /data` top). The
+   cardconjurer nginx worker is **uid 101** → PUT of a rendered card →
+   `[crit] open() …/card_images/teaching/<card>.png.00000000NN failed (13:
+   Permission denied)` → **HTTP 500**. (App-created `art/original` = 101:101 →
+   works.) Fix: append to the `init` entrypoint `chown -R 101:101 /data/decks
+   /data/out /data/card_images`.
+2. **Deck format.** MtgPng2Pdf "Deck List Mode" SKIPS any deck line that does
+   NOT start with a digit → bare `Forest` lines drop out → "No images to print".
+   ccAutomator render is lenient (bare names OK). Use **Moxfield** (`1 Forest`
+   / `2 Brainstorm`) for both steps.
+
+**Recipe (verified):** seed the offline cache
+(`cp /conf/ccProxy/data/scryfall_cache.db /tmp/ccfresh/data/`), write a
+Moxfield `decks/e2e.txt`, `chown -R 101:101 …/data/card_images` (issue #1),
+then `docker compose -p cctest run -T pipeline render decks/e2e.txt` (render is
+~2–3 min Selenium — run DETACHED + poll; a 120s foreground ssh kills it) and
+`docker compose -p cctest run --rm -T pipeline pdf decks/e2e.txt` (fast). The
+project is `cctest` via `-p` (the file's `name:` is `ccproxy`).

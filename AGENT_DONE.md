@@ -1,5 +1,24 @@
 # AGENT DONE — completed items
 
+## End-to-end test cycle on `cctest` (published image) — GREEN  [2026-11-25]
+
+Drove the in-flight `cctest` e2e on `.216` (published `matthewddunlap/ccproxy-*:latest`)
+from STUCK (no cards/PDF) to a full green render→pdf, offline/deterministic. Verified:
+- **render** A/B deck (Forest ×1, Brainstorm ×2) → `forest_lea_294.png` +
+  `brainstorm_ice_61.png`, **offline** (809/33 local-cache prints; NOT live API), exit 0.
+  Card sha256 **byte-identical** to the A/B baseline + the main local `:local` build:
+  `18d2cdfe…cfc0d3` (forest) / `635fcbdf…5fa32a` (brainstorm).
+- **pdf** (cameo, letter portrait 2×3) → `out/e2e.pdf`, **1 page**, 505,930 B, valid
+  %PDF-1.4 (main verified `smoke_cameo.pdf`, same deck = 507,745 B).
+- **2 issues found + worked around** (the e2e caught both on a fresh deploy):
+  1. `init` service leaves `card_images/` root-owned (755) → cardconjurer nginx worker
+     (**uid 101**) can't PUT a rendered card → **HTTP 500** ("Permission denied"). Fixed
+     ad-hoc on `.216` (`chown -R 101:101 /tmp/ccfresh/data/card_images`); **repo `init`
+     fix still TODO** (TODO #1a).
+  2. MtgPng2Pdf "Deck List Mode" SKIPS bare-name deck lines (needs Moxfield `1 Forest`);
+     ccAutomator render is lenient. Use Moxfield for both steps.
+- Venue/commands + exact recipe + next steps: `AGENT_DOING.md` + `bringup.md`.
+
 ## GitHub Actions → Docker Hub publication  [2026-11-24]
 
 The "build + store the images" topic (former TODO #1) — **live and verified**.
