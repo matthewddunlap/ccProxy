@@ -1,5 +1,40 @@
 # AGENT DONE — completed items
 
+## Repeatable e2e + fresh-deploy fixes — verified  [2026-11-25]
+
+The e2e-tests item (former TODO #1) — DONE, verified on a FRESH deploy
+(`cce2e`, `.216:/tmp/cce2e`, published `matthewddunlap/ccproxy-*:latest`).
+Commits: see `git log` after this session (compose fixes + `scripts/e2e.sh`
++ docs). **Push pending user confirmation.**
+
+- **`init` chown fix (REAL bug, app-PUT 500):** `compose.yaml` `init`
+  entrypoint now ends with `chown -R 101:101 /data/decks /data/out
+  /data/card_images` (was root:755 → nginx uid-101 worker EACCES → HTTP 500
+  on card PUT). Verified: fresh cce2e deploy rendered + PUT both cards with
+  NO manual chown.
+- **`decks/prime.txt` seeding (REAL bug, 3rd fresh-deploy issue):** the
+  baked production `custom.conf` runs ccAutomator with `--prime-file
+  decks/prime.txt`; ccAutomator `exit(1)`s on a missing file. Both .216
+  data dirs had been host-side-copied (why cctest looked green). Vendored
+  `config/prime.txt`; `init` seeds it only-if-absent (user's copy wins).
+  Verified on cce2e (init created it before render).
+- **`scripts/e2e.sh`** (+ `scripts/pngphash.py` helper): up → `mtg version`
+  pin checks → seed Moxfield deck + BOTH caches (`E2E_CACHE_SRC` = a data
+  dir) → render (asserts offline resolution, NO live Tagger/Scryfall
+  fetches, byte-identical cards with a pixel-digest diagnosis on mismatch)
+  → cameo PDF (1 page, valid header). `E2E_DOWN=1` tears down.
+- **Determinism findings (in bringup.md):** offline render needs BOTH
+  caches (scryfall + centered-text; a live Tagger re-fetch made a different
+  cache). PNG identity is per-context: FRESH app+data → byte-identical (and
+  505,930 B PDF); an app with residue from an interrupted session can emit a
+  different deflate stream for the SAME pixels (encoded in-browser,
+  `cardCanvas.toDataURL`).
+- **Verification:** two full fresh-stack runs GREEN: version pins
+  (ccautomator 75677f6 / mtgpng2pdf 4bf9b723 / ilaria 57e887c / chromium
+  156.0.8078.108); render 809 local-cache prints, no live fetches; cards
+  `18d2cdfe…cfc0d3` / `635fcbdf…5fa32a` (== cctest + A/B baseline); cameo
+  PDF 505,930 B, 1 page.
+
 ## End-to-end test cycle on `cctest` (published image) — GREEN  [2026-11-25]
 
 Drove the in-flight `cctest` e2e on `.216` (published `matthewddunlap/ccproxy-*:latest`)

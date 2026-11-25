@@ -4,7 +4,8 @@
 PNGs → print PDF pipeline as OCI images (docker compose today; quadlet/NixOS
 later). Read this file first, then:
 
-- `AGENT_TODO.md` — open items, next up: **GitHub Actions build + registry**
+- `AGENT_TODO.md` — open items, next up: **flip the production flow to the
+  new stack** (user's call)
 - `AGENT_DOING.md` — nothing in flight; "NEXT SESSION, START HERE"
 - `AGENT_DONE.md` — everything finished, with verification + commit hashes
 
@@ -19,12 +20,15 @@ rulings, re-open only if the user does.
 
 ## Current status (2026-11-25) — read this first
 
-**End-to-end tests are the active item.** The `cctest` e2e on `.216` (the
+**End-to-end tests: DONE (2026-11-25).** The `cctest` e2e on `.216` (the
 published `matthewddunlap/ccproxy-*:latest`) runs **GREEN end-to-end** —
-render→pdf, offline/deterministic, cards byte-identical to the A/B baseline
-(see AGENT_DONE, 2026-11-25). Left in flight (TODO #1): fix the `init`
-card_images ownership bug (root cause of an app-PUT 500), add a repeatable
-e2e script, commit + push (confirm push). Details: AGENT_DOING.md.
+render→pdf, offline/deterministic, cards byte-identical to the A/B baseline.
+The repeatable deliverable is done too: `compose.yaml` `init` now chowns the
+app-writable data subdirs (fixes a fresh-deploy card-PUT 500) and seeds
+`decks/prime.txt` (a missing-file `exit(1)` both live data dirs had been
+host-side-patched around); `scripts/e2e.sh` is the repeatable test.
+Verified green TWICE on a fresh deploy (`cce2e`). Committed locally; **push
+pending user confirmation**. Details: AGENT_DONE + AGENT_DOING.
 
 **Bringing-up is DONE and verified; all smokes + A/B green.** Both images
 built and deployed alongside the old stack on `.216`; the flip (old conf's

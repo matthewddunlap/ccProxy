@@ -157,23 +157,64 @@ portrait 2×3) → `out/e2e.pdf`, **1 page**, 505,930 B (main verified
 `smoke_cameo.pdf`, same deck = 507,745 B). `mtg version`: ccautomator 75677f6,
 mtgpng2pdf 4bf9b723, ilaria 57e887c, chromium 156.0.8078.108.
 
-**Two issues the e2e caught (fresh-deploy regressions):**
-1. **`init` service ownership bug (REAL, repo fix TODO).** `init` creates
-   `card_images/teaching` as **root:755** (only `chmod 777 /data` top). The
-   cardconjurer nginx worker is **uid 101** → PUT of a rendered card →
-   `[crit] open() …/card_images/teaching/<card>.png.00000000NN failed (13:
-   Permission denied)` → **HTTP 500**. (App-created `art/original` = 101:101 →
-   works.) Fix: append to the `init` entrypoint `chown -R 101:101 /data/decks
-   /data/out /data/card_images`.
-2. **Deck format.** MtgPng2Pdf "Deck List Mode" SKIPS any deck line that does
-   NOT start with a digit → bare `Forest` lines drop out → "No images to print".
-   ccAutomator render is lenient (bare names OK). Use **Moxfield** (`1 Forest`
-   / `2 Brainstorm`) for both steps.
+**Issues the e2e caught (fresh-deploy regressions):**
+1. **`init` service ownership bug (REAL) — FIXED in `compose.yaml`.** `init`
+   creates `card_images/teaching` as **root:755** (only `chmod 777 /data`
+   top). The cardconjurer nginx worker is **uid 101** → PUT of a rendered
+   card → `[crit] open() …/card_images/teaching/<card>.png.00000000NN failed
+   (13: Permission denied)` → **HTTP 500**. (App-created `art/original` =
+   101:101 → works.) Fix: `init` now also runs
+   `chown -R 101:101 /data/decks /data/out /data/card_images`. Verified on a
+   fresh deploy (cce2e): cards PUT with no manual chown.
+2. **Deck format (test gotcha, no code fix).** MtgPng2Pdf "Deck List Mode"
+   SKIPS any deck line that does NOT start with a digit → bare `Forest` lines
+   drop out → "No images to print". ccAutomator render is lenient (bare names
+   OK). Use **Moxfield** (`1 Forest` / `2 Brainstorm`) for both steps.
+3. **`decks/prime.txt` missing on a fresh deploy (REAL) — FIXED in
+   `compose.yaml`.** The baked production `custom.conf` runs ccAutomator with
+   `--prime-file decks/prime.txt`, and ccAutomator `exit(1)`s if it is
+   missing ("Error: Input file not found at 'decks/prime.txt'"). The old
+   stack had it in the driver CWD; both .216 data dirs had been
+   host-side-copied (same 45 B file) — which is why cctest looked green.
+   Fix: vendored at `config/prime.txt`; `init` seeds it into the data dir
+   **only if absent** (a user's own copy wins). Verified on cce2e: `init`
+   created it before render.
 
-**Recipe (verified):** seed the offline cache
-(`cp /conf/ccProxy/data/scryfall_cache.db /tmp/ccfresh/data/`), write a
-Moxfield `decks/e2e.txt`, `chown -R 101:101 …/data/card_images` (issue #1),
-then `docker compose -p cctest run -T pipeline render decks/e2e.txt` (render is
-~2–3 min Selenium — run DETACHED + poll; a 120s foreground ssh kills it) and
-`docker compose -p cctest run --rm -T pipeline pdf decks/e2e.txt` (fast). The
-project is `cctest` via `-p` (the file's `name:` is `ccproxy`).
+**Determinism findings (2026-11-25, repeatable-script work):**
+- Fully offline render needs **both** caches in the data dir:
+  `scryfall_cache.db` (card resolution) and `centered_text_cache.json`
+  (centered-text taggings). Without the second, ccAutomator fetches the
+  Scryfall Tagger live (a fresh fetch produced a different cache,
+  `9c7b7c2f…` vs cctest's `67910056…`).
+- **PNG identity is per-context.** On a FRESH stack (app + data) render is
+  byte-identical to the A/B baseline — reproduced on cce2e, incl. the
+  505,930 B cameo PDF. But on a stack whose app carries residue from a prior
+  failed/interrupted session, the SAME pixels came out with a different
+  deflate stream (brainstorm `5edd7d01…` vs `635fcbdf…`; pixels verified
+  identical — the PNG is encoded in-browser via
+  `cardCanvas.toDataURL('image/png')`). `scripts/e2e.sh` asserts byte
+  identity AND, on mismatch, diagnoses against a pixel digest (sha256 of
+  decoded RGBA) so a context/encoding difference is not mistaken for a
+  render regression.
+- For byte-identical re-runs: start FRESH (stop the app, clear `data/art` +
+  `data/card_images`) and seed both caches.
+
+**Repeatable: `scripts/e2e.sh`** (replaces the manual recipe). From a
+checkout, on a docker host:
+```sh
+E2E_PROJECT=cce2e CC_PORT_1=5351 CC_PORT_2=5352 CC_PORT_3=5353 CC_PORT_4=5354 \
+FILEBROWSER_PORT=8082 E2E_CACHE_SRC=/conf/ccProxy/data sh scripts/e2e.sh
+```
+It brings the project up (init seeds filebrowser config + prime.txt + chowns),
+checks `mtg version` pins, seeds the Moxfield fixture deck + caches, renders
+(asserts offline resolution + no live fetches + **byte-identical cards**,
+with pixel-digest diagnosis on mismatch), and produces the cameo PDF (1 page,
+valid header). `E2E_DOWN=1` tears the project down. Render is ~2–3 min
+Selenium — over ssh, run detached + poll (a 120s foreground ssh kills it).
+
+**Verification (fresh deploy `cce2e`, `.216:/tmp/cce2e`, published image,
+2026-11-25):** full script from a fresh app + data dir, NO manual chown /
+prime.txt seeding — GREEN end-to-end: version pins OK; render offline (809
+local-cache prints, no live fetches); cards `18d2cdfe…cfc0d3` /
+`635fcbdf…5fa32a` (byte-identical to cctest + A/B baseline); cameo PDF
+505,930 B, 1 page. Two fresh-stack runs green.
