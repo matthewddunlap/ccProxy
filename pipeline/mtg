@@ -1,22 +1,62 @@
 #!/usr/bin/env bash
 # mtg — ccProxy pipeline CLI. One image, stable command surface:
 # the same `mtg …` line runs under docker compose, quadlet, or NixOS containers.
+#
+# Zero-flag defaults (the production path):
+#   render <deck>     production conf (baked into the image) + cardconjurer URL
+#   pdf    <deck>     cameo, letter portrait 2x3 ("cameo matless" — the
+#                     production layout; PNGs from the shared data dir)
+#   pdf-plain <flags> the full MtgPng2Pdf CLI (plain grid + cut-lines mode)
+#   upscale <in> <out>  Real-ESRGAN upscaling
+#   version           image identity + every pinned SHA + chromium
+# Every default can be overridden by passing the underlying flag yourself
+# (argparse: the last occurrence wins, and the defaults are injected first).
 set -euo pipefail
 
 DATA_DIR="${DATA_DIR:-/data}"
+APP_URL="${CARDCONJURER_URL:-http://cardconjurer:4242}"
+CONF="/opt/ccAutomator/custom.conf"
+CARDS="$DATA_DIR/card_images/teaching"
+
+# has_arg NAME ARGS... — true if NAME (or NAME=…) is already among ARGS
+has_arg() { local n="$1" a; shift; for a in "$@"; do case "$a" in "$n" | "$n="*) return 0 ;; esac; done; return 1; }
 
 cmd="${1:-help}"
 shift || true
 
 case "$cmd" in
   render)
-    # ccAutomator — decklist -> rendered card PNGs (Selenium drives the
-    # Card Conjurer app; outputs via PUT to the cardconjurer service).
+    # ccAutomator — decklist -> card PNGs (Selenium drives the Card Conjurer
+    # app; outputs via PUT to the cardconjurer service).
+    # Defaults (overridable): the baked production conf, plus the app URL.
+    conf_given=0
+    for a in "$@"; do case "$a" in @*) conf_given=1 ;; esac; done
+    [ "$conf_given" -eq 1 ] || set -- "$@" "@$CONF"
+    has_arg --url          "$@" || set -- "$@" --url          "$APP_URL"
+    has_arg --image-server "$@" || set -- "$@" --image-server "$APP_URL"
     exec env DATA_DIR="$DATA_DIR" CC_AUTOMATOR_DATA_DIR="$DATA_DIR" \
         python /opt/ccAutomator/ccAutomator.py "$@"
     ;;
   pdf)
     # MtgPng2Pdf — card PNGs + decklist -> cut-ready print PDF.
+    # `mtg pdf <deck> [flags]` = production layout with zero required flags;
+    # flags you pass override the defaults. First-arg-is-a-flag = full
+    # passthrough (same surface as `mtg pdf-plain`).
+    if [ $# -ge 1 ] && [ "${1#-}" != "$1" ]; then
+      exec env DATA_DIR="$DATA_DIR" python /opt/MtgPng2Pdf/MtgPng2Pdf.py "$@"
+    fi
+    if [ $# -lt 1 ]; then
+      echo "usage: mtg pdf <deck-list> [flags]      # production cameo layout" >&2
+      echo "       mtg pdf-plain <flags>             # full MtgPng2Pdf CLI" >&2
+      exit 2
+    fi
+    deck="$1"; shift
+    base="$(basename "$deck")"; base="${base%.txt}"
+    set -- --cameo --paper-type letter --cameo-orientation portrait \
+           --png-dir "$CARDS" --deck-list "$deck" --output-file "$DATA_DIR/out/$base" "$@"
+    exec env DATA_DIR="$DATA_DIR" python /opt/MtgPng2Pdf/MtgPng2Pdf.py "$@"
+    ;;
+  pdf-plain)
     exec env DATA_DIR="$DATA_DIR" python /opt/MtgPng2Pdf/MtgPng2Pdf.py "$@"
     ;;
   upscale)
@@ -31,14 +71,19 @@ case "$cmd" in
     cat <<'EOF'
 usage: mtg <command> [args]
 
-  render     ccAutomator: decklist -> card PNGs
-             e.g. mtg render decks/single.txt @conf/custom.conf
-  pdf        MtgPng2Pdf: card PNGs + decklist -> print PDF
-  upscale    Local image upscaling (Ilaria engines, in-process)
-             e.g. mtg upscale in.png out.png --model realesrgan-x2 --scale 4
-  version    Print image version + all pinned source SHAs + chromium version
+  render <deck-list> [flags]   decklist -> card PNGs. Production conf and the
+                               cardconjurer URL are the defaults; pass @conf,
+                               --url, --image-server, ... to override.
+  pdf <deck-list> [flags]      card PNGs -> production cameo PDF (letter
+                               portrait 2x3) at $DATA_DIR/out/<deck>.pdf
+  pdf-plain <flags>            the full MtgPng2Pdf CLI (plain grid + cut-lines
+                               mode, or any flag combination)
+  upscale <in> <out> [flags]   Real-ESRGAN upscaling, e.g.
+                               mtg upscale in.png out.png --mode fast --model realesrgan-x2
+  version                      image identity + pinned source SHAs + chromium
 
-Debug: docker run --rm --entrypoint bash ccproxy/pipeline:local
+env: DATA_DIR (default /data), CARDCONJURER_URL (default http://cardconjurer:4242,
+     set by compose)
 EOF
     exit 0
     ;;

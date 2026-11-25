@@ -4,8 +4,10 @@
 #         to docker.io/matthewddunlap/ccproxy-{cardconjurer,pipeline}
 #         (:latest + <sha7>). `build:` stays so `docker compose build`
 #         still works offline.
+# init:          one-shot host setup (seeds filebrowser config + data dirs),
+#                so `up -d` needs zero manual steps
 # Long-running:  cardconjurer (1 container, 4 ports), filebrowser
-# On-demand:     pipeline (run explicitly, e.g.)
+# On-demand:     pipeline (run explicitly, e.g. `compose run --rm pipeline render decks/x.txt`)
 #   docker compose run --rm pipeline render decks/single.txt @conf/custom.conf
 #   docker compose run --rm pipeline pdf <decklist> [options]
 #   docker compose run --rm pipeline upscale in.png out.png
@@ -16,9 +18,24 @@
 name: ccproxy
 
 services:
+  init:
+    # One-shot host setup so `compose up -d` just works on a fresh machine —
+    # no manual mkdir/cp/chown. Idempotent: seeds the filebrowser config
+    # (it FATALs without one), creates the data-contract dirs, and makes the
+    # data dir writable by the container users (nginx worker uid 101 PUTs
+    # the rendered cards there; the live .216 dir is likewise 777).
+    image: docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+    entrypoint: ["sh", "-c", "set -e; mkdir -p /fb /data/decks /data/out /data/card_images/teaching; [ -f /fb/config.yaml ] || cp /seed/config.yaml /fb/config.yaml; chmod 777 /data"]
+    volumes:
+      - ./filebrowser:/fb
+      - ./config/filebrowser.yaml:/seed/config.yaml:ro
+      - ./data:/data
+    restart: "no"
+
   cardconjurer:
     build: ./cardconjurer
     image: docker.io/matthewddunlap/ccproxy-cardconjurer:latest
+    depends_on: [init]
     # host ports are overridable so the stack can run alongside (or replace)
     # the old five-container setup; container-internal ports stay 4241-4244
     ports:
@@ -33,6 +50,9 @@ services:
 
   filebrowser:
     # digest-pinned: the live `beta` tag on .216, frozen (see pins.txt)
+    # starts after `init` has seeded filebrowser/config.yaml (it FATALs
+    # without it and retries until the file appears)
+    depends_on: [init]
     image: docker.io/gtstef/filebrowser@sha256:38b58c74d72304b829ed8fc14baf189fbd3bfa468c1b1cc3d114e4f47123d67c
     ports:
       - "${FILEBROWSER_PORT:-8080}:80"

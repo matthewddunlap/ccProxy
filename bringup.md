@@ -9,36 +9,48 @@ cd ccProxy
 docker compose build
 ```
 
-## First run
+## First run (fresh machine — zero setup steps)
 
 ```sh
-mkdir -p data/decks data/out data/cache
-chown -R 101:101 data    # nginx worker (uid 101) must be able to write PUT targets
-mkdir -p filebrowser && cp config/filebrowser.yaml filebrowser/config.yaml
-docker compose up -d cardconjurer filebrowser
-# (filebrowser FATALs without its config file — the seed above is the one from
-#  the live .216 deployment, adapted to this stack's /data mount)
+git clone https://github.com/matthewddunlap/ccProxy.git && cd ccProxy
+docker compose up -d        # the one-shot `init` service seeds the filebrowser
+                            # config, creates the data dirs, and makes the data
+                            # dir writable (nginx uid 101) — idempotent
+printf 'Forest\nBrainstorm\nBrainstorm\n' > data/decks/single.txt
+docker compose run --rm pipeline render decks/single.txt    # production conf + URL baked in
+docker compose run --rm pipeline pdf    decks/single.txt    # production cameo layout
+```
 
-# smoke: all four ports serve the app (index.html has no <title>; match the meta keywords)
+(History: these host-side steps used to be manual — `mkdir`/`cp` of the
+filebrowser seed config / `chown 101:101 data`; filebrowser FATALs without
+its config file. All of that now lives in the `init` compose service.
+SELinux hosts: if the mounts come back EACCES, the data/filebrowser
+mounts need the shared label (`:z`) or the domain needs `:z` on the mounts.)
+
+## Smoke (optional verification)
+
+```sh
+# all four ports serve the app (index.html has no <title>; match the meta keywords)
 for p in 4241 4242 4243 4244; do printf "port %s: " "$p"; curl -fsS "http://localhost:$p/" | grep -o 'card, creator, custom, maker'; done
 
-# smoke: PUT + HEAD round trip (what the workers do)
+# PUT + HEAD round trip (what the workers do)
 curl -fsS -X PUT --data-binary 'hello' http://localhost:4242/local_art/smoke.txt
 curl -fsSI  http://localhost:4242/local_art/smoke.txt | head -1
 curl -fsS -X DELETE http://localhost:4242/local_art/smoke.txt
 
-# render one small deck (same flags as today's custom.conf)
+# image identity (pins + chromium)
 docker compose run --rm pipeline version
-docker compose run --rm pipeline render data/decks/single.txt @data/conf/custom.conf
 
-# pdf: the PRODUCTION layout is the cameo one — `--cameo`, letter portrait,
-# a 2x3 (6-slot) fixed layout ("cameo matless"); verified working 2026-11-24
-# with registration marks. The plain grid + --cut-lines mode (3x3 letter etc.)
-# is the OTHER mode — fine to use, just not the production layout.
-docker compose run --rm pipeline pdf --cameo --paper-type letter \
-    --cameo-orientation portrait --png-dir /data/card_images/teaching \
-    --deck-list decks/smoke.txt --output-file /data/out/smoke
+# upscale sanity (192 tile, CPU ok)
+docker compose run --rm --entrypoint python pipeline -c "from PIL import Image; Image.new('RGB',(192,192),(180,60,30)).save('/data/tile192.png')"
+docker compose run --rm pipeline upscale /data/tile192.png /data/out/tile192_x4.png --mode fast --model realesrgan-x2
 ```
+
+Notes: the PRODUCTION pdf layout is the cameo one (`--cameo`, letter
+portrait, 2×3 — "cameo matless"); verified working 2026-11-24 with
+registration marks. The plain grid + `--cut-lines` mode (3×3 letter etc.) is
+the OTHER mode — `mtg pdf-plain`, fine to use, just not the production
+layout.
 
 ## A/B against the live stack (byte-identity methodology from the AGENT notes)
 

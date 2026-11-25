@@ -13,6 +13,7 @@ Ilaria engines     github.com/TheStingerX/Ilaria-Upscaler    57e887c8e2ef20e99b5
 # --- base / sibling images (digest-pinned) --------------------------------
 docker.io/nginx                sha256:aed99734248e851764f1f2146835ecad42b5f994081fa6631cc5d79240891ec9   # == nginx:stable-alpine running on .216
 docker.io/gtstef/filebrowser   sha256:38b58c74d72304b829ed8fc14baf189fbd3bfa468c1b1cc3d114e4f47123d67c   # == the live `beta` tag on .216 (digest pins the moving tag)
+docker.io/library/busybox      sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4   # the one-shot `init` service (seeds filebrowser config + data dirs)
 docker.io/python               (python:3.11-slim-bookworm, tag-pinned; digest-pin when a registry mirror is chosen)
 # --- publication -------------------------------------------------------------
 docker.io/matthewddunlap/ccproxy-*  built + pushed by GitHub Actions (.github/workflows/build-images.yml); tags :latest + <sha7>; public (all inputs are public)
